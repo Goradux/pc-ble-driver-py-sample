@@ -5,7 +5,7 @@ import logging
 import queue
 from pc_ble_driver_py.observers import BLEDriverObserver, BLEAdapterObserver
 
-TARGET_DEV_NAME = "Nordic_HRM"
+TARGET_DEV_NAME = "CAAQM"
 CONNECTIONS = 1
 CFG_TAG = 1
 
@@ -56,14 +56,34 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             new_connection = self.connection_queue.get(timeout=scan_duration)
             self.adapter.service_discovery(new_connection)
 
-            self.adapter.enable_notification(
-                new_connection, BLEUUID(BLEUUID.Standard.battery_level)
-            )
+            # from enum import Enum
+            # class Uuid(Enum):
+            #     # data = 0x2A4B
+            #     # data = 0x2A4C
+            #     data = 0x0003
+            # # uuid = Uuid(0x2A4B)
+            # uuid = Uuid(0x0003)
 
-            self.adapter.enable_notification(new_connection, BLEUUID(BLEUUID.Standard.heart_rate))
+            tx_channel = BLEUUID(0x0000)
+            tx_channel.value = 0x0003
+
+            # self.adapter.enable_notification(
+            #     # new_connection, BLEUUID(BLEUUID.Standard.battery_level)
+            #     # new_connection, BLEUUID(0x6e400003b5a3f393e0a9e50e24dcca9e)
+            #     # new_connection, BLEUUID(0x0003)
+            #     # new_connection, BLEUUID(0x2A4B)
+            #     # new_connection, BLEUUID(uuid)
+            #     new_connection, tx_channel
+            # )
+
+            # self.adapter.enable_notification(new_connection, BLEUUID(BLEUUID.Standard.heart_rate))
+
+            # status, data = self.adapter.read_req(new_connection,BLEUUID(BLEUUID.Standard.battery_level))
+            # status, data = self.adapter.read_req(new_connection, tx_channel)
+            # print('Battery level read value = {} status = {}'.format(data,status))
             return new_connection
         except queue.Empty:
-            print(f"No heart rate collector advertising with name {TARGET_DEV_NAME} found.")
+            print(f"No advertising {TARGET_DEV_NAME} found.")
             return None
 
     def on_gap_evt_connected(self, ble_driver, conn_handle, peer_addr, role, conn_params):
@@ -108,8 +128,11 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             )
         )
 
+        custom_address_string = ":".join(hex(i)[2:].upper() for i in peer_addr.addr)
         if dev_name == TARGET_DEV_NAME:
             self.adapter.connect(peer_addr, tag=CFG_TAG)
+            # self.adapter.authenticate()
+            print('Connected to {}'.format(custom_address_string))
 
     def on_notification(self, ble_adapter, conn_handle, uuid, data):
         if len(data) > 32:
