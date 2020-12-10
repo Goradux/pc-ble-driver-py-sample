@@ -5,20 +5,19 @@ import logging
 import queue
 from pc_ble_driver_py.observers import BLEDriverObserver, BLEAdapterObserver
 
+COM_PORT = 'COM5'
+NRF_ADAPTER = 'NRF52'
 TARGET_DEV_NAME = "CAAQM"
+TARGET_DEV_MAC = 'E9:1E:3D:7D:08:F4'
 CONNECTIONS = 1
 CFG_TAG = 1
 
-
-# def init(conn_ic_id):
-# global config, BLEDriver, BLEAdvData, BLEEvtID, BLEAdapter, BLEEnableParams, BLEGapTimeoutSrc, BLEUUID, BLEConfigCommon, BLEConfig, BLEConfigConnGatt, BLEGapScanParams
 from pc_ble_driver_py import config
 
-config.__conn_ic_id__ = 'NRF52'
-from pc_ble_driver_py.ble_driver import BLEDriver, BLEAdvData, BLEEvtID, BLEEnableParams, BLEGapTimeoutSrc, BLEUUID, BLEGapScanParams, BLEConfigCommon, BLEConfig, BLEConfigConnGatt, util, driver
+config.__conn_ic_id__ = NRF_ADAPTER
+from pc_ble_driver_py.ble_driver import BLEDriver, BLEAdvData, BLEEvtID, BLEEnableParams, BLEGapTimeoutSrc, BLEUUID, BLEGapScanParams, BLEConfigCommon, BLEConfig, BLEConfigConnGatt, util, driver, BLEGattsHVXParams, BLEGattsCharHandles
 from pc_ble_driver_py.ble_adapter import BLEAdapter
 
-# global nrf_sd_ble_api_ver
 nrf_sd_ble_api_ver = config.sd_api_ver_get()
 
 
@@ -37,7 +36,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
         if str(config.__conn_ic_id__).upper() == "NRF52":
             gatt_config = BLEConfigConnGatt()
             gatt_config.att_mtu = self.adapter.default_mtu
-            # gatt_config.tag = CFG_TAG ? mb they had an error?
+            # gatt_config.tag = CFG_TAG # ? mb they had an error?
             gatt_config.conn_cfg_tag = CFG_TAG
             self.adapter.driver.ble_cfg_set(BLEConfig.conn_gatt, gatt_config)
 
@@ -56,27 +55,12 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             new_connection = self.connection_queue.get(timeout=scan_duration)
             self.adapter.service_discovery(new_connection)
 
-            # from enum import Enum
-            # class Uuid(Enum):
-            #     # data = 0x2A4B
-            #     # data = 0x2A4C
-            #     data = 0x0003
-            # # uuid = Uuid(0x2A4B)
-            # uuid = Uuid(0x0003)
+            tx_channel = BLEUUID(0x0003)
 
-            tx_channel = BLEUUID(0x0000)
-            tx_channel.value = 0x0003
-
-            # self.adapter.enable_notification(
-            #     # new_connection, BLEUUID(BLEUUID.Standard.battery_level)
-            #     # new_connection, BLEUUID(0x6e400003b5a3f393e0a9e50e24dcca9e)
-            #     # new_connection, BLEUUID(0x0003)
-            #     # new_connection, BLEUUID(0x2A4B)
-            #     # new_connection, BLEUUID(uuid)
-            #     new_connection, tx_channel
-            # )
-
-            # self.adapter.enable_notification(new_connection, BLEUUID(BLEUUID.Standard.heart_rate))
+            self.adapter.enable_notification(
+                # new_connection, BLEUUID(BLEUUID.Standard.battery_level)
+                new_connection, BLEUUID(0x0003)
+            )
 
             # status, data = self.adapter.read_req(new_connection,BLEUUID(BLEUUID.Standard.battery_level))
             # status, data = self.adapter.read_req(new_connection, tx_channel)
@@ -99,7 +83,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
     #     print("Passkey display request: {} {}".format(conn_handle, passkey))
 
     def on_gap_evt_auth_key_request(self, ble_driver, conn_handle, **kwargs):
-        passkey = '111111'  # must be string or a list
+        passkey = '111111'  # must be a string or a list
         pk = util.list_to_uint8_array(passkey)
 
         driver.sd_ble_gap_auth_key_reply(
@@ -128,7 +112,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             )
         )
 
-        custom_address_string = ":".join(hex(i)[2:].upper() for i in peer_addr.addr)
+        custom_address_string = ":".join(hex(i)[2:].rjust(2, '0').upper() for i in peer_addr.addr)
         if dev_name == TARGET_DEV_NAME:
             self.adapter.connect(peer_addr, tag=CFG_TAG)
             # self.adapter.authenticate()
@@ -162,7 +146,7 @@ if __name__ == "__main__":
         level="DEBUG",
         format="%(asctime)s [%(thread)d/%(threadName)s] %(message)s",
     )
-    serial_port = 'COM10'
+    serial_port = COM_PORT
     if len(sys.argv) > 1:
         serial_port = sys.argv[1]
     main(serial_port)
