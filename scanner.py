@@ -21,6 +21,16 @@ from pc_ble_driver_py.ble_adapter import BLEAdapter
 nrf_sd_ble_api_ver = config.sd_api_ver_get()
 
 
+def print_with_gaps(*args, **kwargs):
+    print()
+    print()
+    print()
+    print(*args, **kwargs)
+    print()
+    print()
+    print()
+
+
 class HRCollector(BLEDriverObserver, BLEAdapterObserver):
     def __init__(self, adapter):
         # super(HRCollector, self).__init__()
@@ -52,15 +62,17 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
         self.adapter.driver.ble_gap_scan_start(scan_params=params)
 
         try:
+            # before and after this line changes a lot!!!
             new_connection = self.connection_queue.get(timeout=scan_duration)
+            print_with_gaps('IN CONNECT AND DISCOVER')
             self.adapter.service_discovery(new_connection)
-
+            print_with_gaps('AFTER DISCOVERY')
             tx_channel = BLEUUID(0x0003)
-
-            self.adapter.enable_notification(
-                # new_connection, BLEUUID(BLEUUID.Standard.battery_level)
-                new_connection, BLEUUID(0x0003)
-            )
+            # somehow this happens before the "AFTER DISCOVERY" printout
+            # self.adapter.enable_notification(
+            #     # new_connection, BLEUUID(BLEUUID.Standard.battery_level)
+            #     new_connection, BLEUUID(0x0003)
+            # )
 
             # status, data = self.adapter.read_req(new_connection,BLEUUID(BLEUUID.Standard.battery_level))
             # status, data = self.adapter.read_req(new_connection, tx_channel)
@@ -71,7 +83,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             return None
 
     def on_gap_evt_connected(self, ble_driver, conn_handle, peer_addr, role, conn_params):
-        print("New connection: {}".format(conn_handle))
+        print_with_gaps("New connection: {}".format(conn_handle))
         self.connection_queue.put(conn_handle)
 
     def on_gap_evt_disconnected(self, ble_driver, conn_handle, reason):
@@ -115,8 +127,12 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
         custom_address_string = ":".join(hex(i)[2:].rjust(2, '0').upper() for i in peer_addr.addr)
         if dev_name == TARGET_DEV_NAME:
             self.adapter.connect(peer_addr, tag=CFG_TAG)
-            # self.adapter.authenticate()
+            # print_with_gaps('Connected')
+            # result = self.adapter.authenticate(conn_handle, None, bond=True)
+            # print_with_gaps('Authenticated')
+            # print_with_gaps(result)
             print('Connected to {}'.format(custom_address_string))
+            print_with_gaps('In the if statement')
 
     def on_notification(self, ble_adapter, conn_handle, uuid, data):
         if len(data) > 32:
@@ -126,6 +142,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
 
 def main(selected_serial_port):
     print("Serial port used: {}".format(selected_serial_port))
+    print_with_gaps()
     driver = BLEDriver(
         serial_port=selected_serial_port, auto_flash=False, baud_rate=1000000, log_severity_level="info"
     )
@@ -139,6 +156,19 @@ def main(selected_serial_port):
         time.sleep(10)
 
     collector.close()
+
+    # set up settings
+
+    # set up central adapter
+    # assign central
+
+    # set up peripheral adapter ???
+    # assign peripheral
+
+    # start the test:
+    # start the peripheral ???
+    # start the central
+
 
 
 if __name__ == "__main__":
