@@ -9,8 +9,23 @@ import pygetwindow
 # https://pypi.org/project/PyAutoGUI/
 import pyautogui
 import time
+import os
+import sys
 
 REGION = (0, 0, 1000, 1000)
+FULL_PATH = None
+FOLDER = None
+FILE = None
+
+def check_args(path):
+    if os.path.exists(path):
+        global FULL_PATH, FOLDER, FILE
+        FULL_PATH = os.path.abspath(path)
+        FOLDER = os.path.dirname(FULL_PATH)
+        FILE = os.path.basename(FULL_PATH)
+    else:
+        raise ValueError('Bad .zip path.')
+
 
 def prepare_window():
     window = pygetwindow.getWindowsWithTitle('nRF Connect v3.6.1 - Bluetooth Low Energy')[0]
@@ -155,6 +170,21 @@ def start_secure_DFU():
     pyautogui.moveTo(DFU_BUTTON)
     pyautogui.click()
 
+def choose_zip_file():
+    CHOOSE_BUTTON = (750, 150)
+    pyautogui.moveTo(CHOOSE_BUTTON)
+    pyautogui.click()
+    time.sleep(0.25)
+    pyautogui.hotkey('ctrl' ,'l')
+    pyautogui.press('backspace')
+    pyautogui.write(FOLDER)
+    for _ in range(6):
+        pyautogui.press('tab')
+    pyautogui.write(FILE)
+    pyautogui.press('enter')
+
+
+
 if __name__ == "__main__":
     prepare_window()
     choose_adapter()
@@ -174,3 +204,4 @@ if __name__ == "__main__":
     discover_devices()
     connect_DfuTarg()
     start_secure_DFU()
+    choose_zip_file()
