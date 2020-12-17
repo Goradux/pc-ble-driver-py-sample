@@ -94,11 +94,17 @@ def prepare_path():
 def prepare_nrf_connect_window():
     print('Preparing nRF Connect window.')
     try:
+        old_ble_window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION} - Bluetooth Low Energy')[0]
+        old_ble_window.close()
+    except:
+        pass
+    time.sleep(1)
+    try:
         window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION}')[0]
     except IndexError:
         print(f'No nRF Connect v{NRF_VERSION} found.')
         exit()
-    window.resizeTo(768, 160)
+    window.resizeTo(768, 500)
     window.moveTo(0, 0)
     window.activate()
     BLE_OPEN = (610, 210)
@@ -108,7 +114,7 @@ def prepare_nrf_connect_window():
 
 
 def prepare_nrf_connect_ble_window():
-    print('Preparing the window.')
+    print('Preparing nRF Connect BLE window.')
     # window = pygetwindow.getWindowsWithTitle('nRF Connect v3.6.1 - Bluetooth Low Energy')[0]
     try:
         window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION} - Bluetooth Low Energy')[0]
@@ -531,4 +537,3 @@ if __name__ == "__main__":
         PASSKEY = aqm['passkey']
         AQM_update_main()
         time.sleep(3)
-        
