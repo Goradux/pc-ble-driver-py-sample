@@ -91,7 +91,23 @@ def prepare_path():
         raise ValueError('Bad .zip path.')
 
 
-def prepare_window():
+def prepare_nrf_connect_window():
+    print('Preparing nRF Connect window.')
+    try:
+        window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION}')[0]
+    except IndexError:
+        print(f'No nRF Connect v{NRF_VERSION} found.')
+        exit()
+    window.resizeTo(768, 160)
+    window.moveTo(0, 0)
+    window.activate()
+    BLE_OPEN = (610, 210)
+    pyautogui.moveTo(BLE_OPEN)
+    pyautogui.click()
+    time.sleep(5)
+
+
+def prepare_nrf_connect_ble_window():
     print('Preparing the window.')
     # window = pygetwindow.getWindowsWithTitle('nRF Connect v3.6.1 - Bluetooth Low Energy')[0]
     try:
@@ -102,6 +118,23 @@ def prepare_window():
     window.resizeTo(1000, 800)
     window.moveTo(0, 0)
     window.activate()
+
+
+def restart_nrf_connect_ble_window():
+    nrf_connect_ble = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION} - Bluetooth Low Energy')[0]
+    nrf_connect_ble.close()
+    time.sleep(1)
+    nrf_connect = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION}')[0]
+    nrf_connect.activate()
+    BLE_OPEN = (610, 210)
+    pyautogui.moveTo(BLE_OPEN)
+    pyautogui.click()
+    time.sleep(5)
+
+
+def close_choose_file_window():
+    choose_file = pygetwindow.getWindowsWithTitle('Choose file')[0]
+    choose_file.close()
 
 
 def get_DFU_MAC(mac: str) -> str:
@@ -347,7 +380,11 @@ def choose_zip_file():
         return 0
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. Choosing zip file has failed.')
-        # need to restart NRF here
+        try:
+            close_choose_file_window()
+        except Exception as e:
+            print(e)
+        restart_nrf_connect_ble_window()
         return -1
 
 
@@ -435,7 +472,8 @@ def init():
     print('Initializing the program.')
     parse_args()
     prepare_path()
-    prepare_window()
+    prepare_nrf_connect_window()
+    prepare_nrf_connect_ble_window()
     read_list(AQMS_LIST)
 
 
@@ -493,3 +531,4 @@ if __name__ == "__main__":
         PASSKEY = aqm['passkey']
         AQM_update_main()
         time.sleep(3)
+        
