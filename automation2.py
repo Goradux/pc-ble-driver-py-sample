@@ -181,7 +181,7 @@ def connect_AQM():
     time.sleep(1)
 
     try:
-        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.85)
+        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
