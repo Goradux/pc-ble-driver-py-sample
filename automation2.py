@@ -33,10 +33,12 @@ PATH = '.\\test_fw\\download_AQM_v112t_20201126.zip'
 NRF_VERSION = '3.6.1'
 MAC = 'E9:1E:3D:7D:08:F4'
 PASSKEY = '111111'
+AQMS_LIST = 'lists/AQMs.txt'
 
 FULL_PATH = None
 FOLDER = None
 FILE = None
+AQMS = []
 
 
 def parse_args():
@@ -45,28 +47,35 @@ def parse_args():
         global NRF_VERSION
         NRF_VERSION = sys.argv[1]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
+        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
         exit()
     
-    try:
-        global MAC
-        MAC = sys.argv[2]
-    except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
-        exit()
+    # try:
+    #     global MAC
+    #     MAC = sys.argv[2]
+    # except:
+    #     print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
+    #     exit()
+
+    # try:
+    #     global PASSKEY
+    #     PASSKEY = sys.argv[3]
+    # except:
+    #     print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
+    #     exit()
 
     try:
-        global PASSKEY
-        PASSKEY = sys.argv[3]
+        global AQMS_LIST
+        AQMS_LIST = sys.argv[2]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
+        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
         exit()
 
     try:
         global PATH 
-        PATH = sys.argv[4]
+        PATH = sys.argv[3]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
+        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
         exit()
 
 
@@ -338,6 +347,7 @@ def choose_zip_file():
         return 0
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. Choosing zip file has failed.')
+        # need to restart NRF here
         return -1
 
 
@@ -397,7 +407,7 @@ def validate_passkey(passkey: str) -> bool:
         return False
 
 
-def read_list(aqm_list: str) -> list:
+def read_list(aqm_list: str):
     aqms = []
     try:
         with open(aqm_list) as f:
@@ -417,14 +427,16 @@ def read_list(aqm_list: str) -> list:
     except ValueError:
         print('Please check data correctness and try again. Exiting.')
         exit()
-    return aqms
+    global AQMS
+    AQMS = aqms
 
 
 def init():
     print('Initializing the program.')
-    # parse_args()
+    parse_args()
     prepare_path()
     prepare_window()
+    read_list(AQMS_LIST)
 
 
 def AQM_update_main():
@@ -476,8 +488,7 @@ def AQM_update_main():
 
 if __name__ == "__main__":
     init()
-    aqms = read_list('lists/AQMs.txt')
-    for aqm in aqms:
+    for aqm in AQMS:
         MAC = aqm['mac']
         PASSKEY = aqm['passkey']
         AQM_update_main()
