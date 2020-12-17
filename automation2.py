@@ -9,15 +9,18 @@ try:
     import pygetwindow
 except ImportError:
     print('Install pygetwindow with: pip install pygetwindow')
+    exit()
 # https://pypi.org/project/PyAutoGUI/
 try:
     import pyautogui
 except:
     print('Install pyautogui with: pip install pyautogui')
+    exit()
 try:
     import cv2
 except ImportError:
     print('Install cv2 with: pip install opencv-python')
+    exit()
 import time
 import os
 import sys
@@ -25,7 +28,7 @@ import sys
 REGION = (0, 0, 1000, 1000)
 
 # default values for testing:
-PATH = 'C:\\ex_hex\\OTA\\download_AQM_v112t_20201126.zip'
+PATH = '.\\test_fw\\download_AQM_v112t_20201126.zip'
 NRF_VERSION = '3.6.1'
 MAC = 'E9:1E:3D:7D:08:F4'
 PASSKEY = '111111'
@@ -91,6 +94,15 @@ def prepare_window():
     window.activate()
 
 
+def get_DFU_MAC(mac: str) -> str:
+    dfu_mac = ''
+
+    temp = hex(int(mac.replace(':', ''), base=16) + 1)[2:].upper()
+    dfu_mac = ':'.join(temp[i:i+2] for i in range(0, len(temp), 2))
+
+    return dfu_mac
+
+
 def choose_adapter():
     print('Selecting the adapter.')
     SELECT_DEVICE = (150, 50)
@@ -147,6 +159,7 @@ def connect_AQM():
     CONNECT_BUTTON = (950, 275)
     pyautogui.moveTo(CONNECT_BUTTON)
     pyautogui.click()
+    time.sleep(0.5)
 
     try:
         position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
@@ -154,11 +167,11 @@ def connect_AQM():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. Device has been disconnected.')
+        print('  Trying to connect again.')
         ERROR_CLOSE = (750, 220)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
         connect_AQM()
-        return
 
 
 def disconnect_AQM():
@@ -177,13 +190,15 @@ def pair():
     COG = (575, 225)
     pyautogui.moveTo(COG)
     pyautogui.click()
+    time.sleep(0.25)
     PAIR = (585, 395)
     pyautogui.moveTo(PAIR)
     pyautogui.click()
+    time.sleep(0.25)
     PAIR_2 = (695, 535)
     pyautogui.moveTo(PAIR_2)
     pyautogui.click()
-    time.sleep(0.5)
+    time.sleep(0.25)
     try:
         position = pyautogui.locateOnScreen('images/error_pairing_timeout.png', region=REGION, confidence=0.75)
         if position != None:
@@ -197,11 +212,12 @@ def pair():
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
         return -1
-    time.sleep(2)
+    time.sleep(1)
     PASSKEY_FIELD = (560, 190)
     pyautogui.moveTo(PASSKEY_FIELD)
     pyautogui.click()
     pyautogui.write(PASSKEY, interval=0.01)
+    time.sleep(0.25)
     SUBMIT_PASSKEY = (690, 250)
     pyautogui.moveTo(SUBMIT_PASSKEY)
     pyautogui.click()
@@ -248,7 +264,19 @@ def connect_DfuTarg():
     CONNECT_BUTTON = (950, 275)
     pyautogui.moveTo(CONNECT_BUTTON)
     pyautogui.click()
+    time.sleep(0.5)
     # this can throw a bunch of errors
+    try:
+        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
+        if position != None:
+            raise ValueError
+    except (pyautogui.ImageNotFoundException, ValueError):
+        print('  Error received. DfuTarg has been disconnected.')
+        print('  Trying to connect again.')
+        ERROR_CLOSE = (750, 220)
+        pyautogui.moveTo(ERROR_CLOSE)
+        pyautogui.click()
+        connect_DfuTarg()
 
 
 def start_secure_DFU():
@@ -265,10 +293,15 @@ def choose_zip_file():
     pyautogui.click()
     time.sleep(0.25)
     pyautogui.hotkey('ctrl' ,'l')
+    pyautogui.hotkey('ctrl', 'a')
     pyautogui.press('backspace')
+    time.sleep(0.25)
     pyautogui.write(FOLDER)
+    pyautogui.press('enter')
+    print(FOLDER)
     for _ in range(6):
         pyautogui.press('tab')
+        time.sleep(0.1)
     pyautogui.write(FILE)
     pyautogui.press('enter')
 
@@ -276,6 +309,7 @@ def choose_zip_file():
 def start_DFU_upload():
     print('Starting DFU upload.')
     # TODO: replace hardcoded buttons to button searches via pyautogui.locateCenterOnScreen()
+    time.sleep(0.25)
     START_DFU_BUTTON = (735, 300)
     pyautogui.moveTo(START_DFU_BUTTON)
     pyautogui.click()
@@ -285,22 +319,28 @@ def check_DFU():
     print('Checking DFU progress.')
     while True:
         try:
-            position = pyautogui.locateOnScreen('images/dfu_completed.png', region=REGION, confidence=0.75)
+            position = pyautogui.locateOnScreen('images/dfu_completed.png', region=REGION, confidence=0.95)
             print(position)
-            if position != None:
+            if position == None:
                 raise ValueError
             CLOSE_BUTTON = (755, 395)
             pyautogui.moveTo(CLOSE_BUTTON)
             pyautogui.click()
+            break
         except (pyautogui.ImageNotFoundException, ValueError):
             print('  DFU is still in progress.')
         time.sleep(5)
+
+
+def cleanup():
+    raise NotImplementedError
 
 
 if __name__ == "__main__":
     parse_args()
     prepare_path()
     prepare_window()
+
     choose_adapter()
     time.sleep(3)
     filter_device(MAC)
@@ -319,7 +359,8 @@ if __name__ == "__main__":
         if write_request() == 0:
             break
     time.sleep(7)
-    filter_device('DfuTarg')
+    # TODO: change DfuTarg to MAC
+    filter_device(get_DFU_MAC(MAC))
     discover_devices()
     connect_DfuTarg()
     start_secure_DFU()
