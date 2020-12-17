@@ -24,6 +24,7 @@ except ImportError:
 import time
 import os
 import sys
+import re
 
 REGION = (0, 0, 1000, 1000)
 
@@ -156,13 +157,22 @@ def discover_devices():
 
 def connect_AQM():
     print(f'Connecting to AQM at {MAC}.')
+
+    try:
+        position = pyautogui.locateCenterOnScreen('images/button_connect.png', region=REGION, confidence=0.95)
+        if position == None:
+            raise ValueError
+    except (pyautogui.ImageNotFoundException, ValueError):
+        print(f'  Error received. No AQM at {MAC} found.')
+        return -1    
+
     CONNECT_BUTTON = (950, 275)
     pyautogui.moveTo(CONNECT_BUTTON)
     pyautogui.click()
-    time.sleep(0.5)
+    time.sleep(1)
 
     try:
-        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
+        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.85)
         if position != None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -179,6 +189,7 @@ def disconnect_AQM():
     COG = (575, 230)
     pyautogui.moveTo(COG)
     pyautogui.click()
+    time.sleep(1)
     DISCONNECT = (610, 440)
     pyautogui.moveTo(DISCONNECT)
     pyautogui.click()
@@ -186,19 +197,19 @@ def disconnect_AQM():
 
 def pair():
     print(f'Pairing to the AQM at {MAC} with {PASSKEY}.')
-    time.sleep(0.5)
+    time.sleep(1)
     COG = (575, 225)
     pyautogui.moveTo(COG)
     pyautogui.click()
-    time.sleep(0.25)
+    time.sleep(0.5)
     PAIR = (585, 395)
     pyautogui.moveTo(PAIR)
     pyautogui.click()
-    time.sleep(0.25)
+    time.sleep(0.5)
     PAIR_2 = (695, 535)
     pyautogui.moveTo(PAIR_2)
     pyautogui.click()
-    time.sleep(0.25)
+    time.sleep(0.5)
     try:
         position = pyautogui.locateOnScreen('images/error_pairing_timeout.png', region=REGION, confidence=0.75)
         if position != None:
@@ -211,7 +222,7 @@ def pair():
         ERROR_CLOSE = (755, 210)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
-        return -1
+        return 1
     time.sleep(1)
     PASSKEY_FIELD = (560, 190)
     pyautogui.moveTo(PASSKEY_FIELD)
@@ -222,6 +233,19 @@ def pair():
     pyautogui.moveTo(SUBMIT_PASSKEY)
     pyautogui.click()
     time.sleep(7)
+
+    # bad passkey
+    try:
+        position = pyautogui.locateOnScreen('images/error_bad_passkey.png', region=REGION, confidence=0.9)
+        if position != None:
+            raise ValueError
+    except (pyautogui.ImageNotFoundException, ValueError):
+        print('  Error when pairing: Bad passkey.')
+        ERROR_CLOSE = (755, 265)
+        pyautogui.moveTo(ERROR_CLOSE)
+        pyautogui.click()
+        return -1
+
     CLOSE = (755, 265)
     pyautogui.moveTo(CLOSE)
     pyautogui.click()
@@ -284,6 +308,7 @@ def start_secure_DFU():
     DFU_BUTTON = (540, 225)
     pyautogui.moveTo(DFU_BUTTON)
     pyautogui.click()
+    time.sleep(0.5)
 
 
 def choose_zip_file():
@@ -291,11 +316,11 @@ def choose_zip_file():
     CHOOSE_BUTTON = (750, 150)
     pyautogui.moveTo(CHOOSE_BUTTON)
     pyautogui.click()
-    time.sleep(0.25)
+    time.sleep(0.5)
     pyautogui.hotkey('ctrl' ,'l')
     pyautogui.hotkey('ctrl', 'a')
     pyautogui.press('backspace')
-    time.sleep(0.25)
+    time.sleep(0.5)
     pyautogui.write(FOLDER)
     pyautogui.press('enter')
     print(FOLDER)
@@ -304,31 +329,49 @@ def choose_zip_file():
         time.sleep(0.1)
     pyautogui.write(FILE)
     pyautogui.press('enter')
+    time.sleep(1)
+
+    try:
+        position = pyautogui.locateOnScreen('images/choose_zip_file_success.png', region=REGION, confidence=0.9)
+        if position == None:
+            raise ValueError
+        return 0
+    except (pyautogui.ImageNotFoundException, ValueError):
+        print('  Error received. Choosing zip file has failed.')
+        return -1
 
 
 def start_DFU_upload():
     print('Starting DFU upload.')
     # TODO: replace hardcoded buttons to button searches via pyautogui.locateCenterOnScreen()
-    time.sleep(0.25)
+    time.sleep(0.5)
     START_DFU_BUTTON = (735, 300)
     pyautogui.moveTo(START_DFU_BUTTON)
     pyautogui.click()
 
 
-def check_DFU():
+def check_DFU() -> int:
     print('Checking DFU progress.')
+    start = time.time()
     while True:
         try:
             position = pyautogui.locateOnScreen('images/dfu_completed.png', region=REGION, confidence=0.95)
-            print(position)
             if position == None:
                 raise ValueError
             CLOSE_BUTTON = (755, 395)
             pyautogui.moveTo(CLOSE_BUTTON)
             pyautogui.click()
-            break
+            # add successful return
+            # add timeout if it is never reached
+            # break
+            return 0
         except (pyautogui.ImageNotFoundException, ValueError):
-            print('  DFU is still in progress.')
+            time_elapsed = round(time.time() - start, 3)
+            print(f'  DFU is still in progress. Time elapsed: {time_elapsed} seconds.')
+            if (time_elapsed) > 90:
+                print('90 seconds exceeded. Stopping the execution.')
+                print('Please restart nRF Connect and the script.')
+                return -1
         time.sleep(5)
 
 
@@ -336,34 +379,106 @@ def cleanup():
     raise NotImplementedError
 
 
-if __name__ == "__main__":
-    parse_args()
+def validate_mac(mac: str) -> bool:
+    if re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", mac.lower()):
+        return True
+    else:
+        return False
+
+
+def validate_passkey(passkey: str) -> bool:
+    try:
+        if len(passkey) == 6:
+            int(passkey)
+            return True
+        else:
+            raise ValueError
+    except ValueError:
+        return False
+
+
+def read_list(aqm_list: str) -> list:
+    aqms = []
+    try:
+        with open(aqm_list) as f:
+            lines = f.read().splitlines()
+            index = 1
+            for line in lines:
+                mac, passkey = line.split(' ')
+                if validate_mac(mac) and validate_passkey(passkey):
+                    aqms.append({'mac': mac, 'passkey': passkey})
+                else:
+                    print(f'Bad data at line {index}:', mac, passkey)
+                    raise ValueError
+                index += 1
+    except FileNotFoundError:
+        print('Bad AQM list specified. Exiting.')
+        exit()
+    except ValueError:
+        print('Please check data correctness and try again. Exiting.')
+        exit()
+    return aqms
+
+
+def init():
+    print('Initializing the program.')
+    # parse_args()
     prepare_path()
     prepare_window()
 
-    choose_adapter()
-    time.sleep(3)
-    filter_device(MAC)
-    discover_devices()
-    connect_AQM()
-    while True:
-        if pair() == -1:
-            disconnect_AQM()
-            connect_AQM()
+
+def AQM_update_main():
+    print()
+    print(f'Updating AQM at {MAC}')
+    try:
+        choose_adapter()
+        time.sleep(3)
+        filter_device(MAC)
+        discover_devices()
+        if connect_AQM() == -1:
+            raise RuntimeError
+        while True:
+            pair_attempt = 0
+            if pair_attempt > 2:
+                raise RuntimeError
+            pair_code = pair()
+            if pair_code == 1:
+                disconnect_AQM()
+                connect_AQM()
+            elif pair_code == -1:
+                raise RuntimeError
+            else:
+                break
+            pair_attempt += 1
+        while True:
+            time.sleep(0.5)
+            if write_request() == 0:
+                break
+        time.sleep(7)
+        filter_device(get_DFU_MAC(MAC))
+        discover_devices()
+        connect_DfuTarg()
+        start_secure_DFU()
+        if choose_zip_file() == -1:
+            raise RuntimeError
+        start_DFU_upload()
+        if check_DFU() == 0:
+            # success
+            print(f'Update of AQM at {MAC} is successful!')
+            return 0
         else:
-            break
-    ## THERE IS A BUG HERE: the program needs to detect whether there CAAQM has
-    ## not connected properly
-    while True:
-        time.sleep(0.5)
-        if write_request() == 0:
-            break
-    time.sleep(7)
-    # TODO: change DfuTarg to MAC
-    filter_device(get_DFU_MAC(MAC))
-    discover_devices()
-    connect_DfuTarg()
-    start_secure_DFU()
-    choose_zip_file()
-    start_DFU_upload()
-    check_DFU()
+            # failure
+            raise RuntimeError
+    except RuntimeError:
+        print(f'Error while updating AQM at {MAC}. Skipping this device.')
+        return -1
+
+
+if __name__ == "__main__":
+    init()
+    aqms = read_list('lists/AQMs.txt')
+    for aqm in aqms:
+        MAC = aqm['mac']
+        PASSKEY = aqm['passkey']
+        AQM_update_main()
+        time.sleep(3)
