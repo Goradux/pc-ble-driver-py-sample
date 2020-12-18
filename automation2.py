@@ -4,27 +4,31 @@
 # 4. Do the shenanigans
 #
 
+import time
+import os
+import sys
+import re
+import logging
+from datetime import datetime
+
 # https://pypi.org/project/PyGetWindow/
 try:
     import pygetwindow
 except ImportError:
     print('Install pygetwindow with: pip install pygetwindow')
-    exit()
+    sys.exit()
 # https://pypi.org/project/PyAutoGUI/
 try:
     import pyautogui
 except:
     print('Install pyautogui with: pip install pyautogui')
-    exit()
+    sys.exit()
 try:
     import cv2
 except ImportError:
     print('Install cv2 with: pip install opencv-python')
-    exit()
-import time
-import os
-import sys
-import re
+    sys.exit()
+
 
 REGION = (0, 0, 1000, 1000)
 
@@ -47,36 +51,36 @@ def parse_args():
         global NRF_VERSION
         NRF_VERSION = sys.argv[1]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
-        exit()
+        print(f'The required CLI arguments are: nrf_version aqm_list_path zip_path')
+        sys.exit()
     
     # try:
     #     global MAC
     #     MAC = sys.argv[2]
     # except:
     #     print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
-    #     exit()
+    #     sys.exit()
 
     # try:
     #     global PASSKEY
     #     PASSKEY = sys.argv[3]
     # except:
     #     print(f'The CLI format is: python {sys.argv[0]} nrf_version MAC_address passkey zip_path')
-    #     exit()
+    #     sys.exit()
 
     try:
         global AQMS_LIST
         AQMS_LIST = sys.argv[2]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
-        exit()
+        print(f'The required CLI arguments are: nrf_version aqm_list_path zip_path')
+        sys.exit()
 
     try:
         global PATH 
         PATH = sys.argv[3]
     except:
-        print(f'The CLI format is: python {sys.argv[0]} nrf_version aqm_list_path zip_path')
-        exit()
+        print(f'The required CLI arguments are: nrf_version aqm_list_path zip_path')
+        sys.exit()
 
 
 def prepare_path():
@@ -103,7 +107,7 @@ def prepare_nrf_connect_window():
         window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION}')[0]
     except IndexError:
         print(f'No nRF Connect v{NRF_VERSION} found.')
-        exit()
+        sys.exit()
     window.resizeTo(768, 500)
     window.moveTo(0, 0)
     window.activate()
@@ -120,7 +124,7 @@ def prepare_nrf_connect_ble_window():
         window = pygetwindow.getWindowsWithTitle(f'nRF Connect v{NRF_VERSION} - Bluetooth Low Energy')[0]
     except IndexError:
         print(f'No nRF Connect Bluetooth Low Energy with version {NRF_VERSION} found.')
-        exit()
+        sys.exit()
     window.resizeTo(1000, 800)
     window.moveTo(0, 0)
     window.activate()
@@ -163,7 +167,8 @@ def choose_adapter():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print('No nRF52 dongle found.')
-        exit()
+        logging.error(f'No nRF52 dongle found.')
+        sys.exit()
     SELECT_ADAPTER = (150, 120)
     pyautogui.moveTo(SELECT_ADAPTER)
     pyautogui.click()
@@ -203,8 +208,14 @@ def discover_devices():
     pyautogui.click()
 
 
+connect_AQM_retry_counter = 0
 def connect_AQM():
     print(f'Connecting to AQM at {MAC}.')
+    global connect_AQM_retry_counter
+    if connect_AQM_retry_counter > 3:
+        connect_AQM_retry_counter = 0
+        logging.exception(f'{MAC} - Connect AQM limit reached. Skipping this device.')
+        return -1
 
     try:
         position = pyautogui.locateCenterOnScreen('images/button_connect.png', region=REGION, confidence=0.95)
@@ -212,6 +223,8 @@ def connect_AQM():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print(f'  Error received. No AQM at {MAC} found.')
+        connect_AQM_retry_counter = 0
+        logging.error(f'{MAC} - No AQM with such MAC found.')
         return -1    
 
     CONNECT_BUTTON = (950, 275)
@@ -223,12 +236,16 @@ def connect_AQM():
         position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
+        connect_AQM_retry_counter = 0
+        return 0
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. Device has been disconnected.')
         print('  Trying to connect again.')
+        logging.exception(f'{MAC} - Device has been disconnected. Trying again.')
         ERROR_CLOSE = (750, 220)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
+        connect_AQM_retry_counter += 1
         connect_AQM()
 
 
@@ -264,6 +281,7 @@ def pair():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error when pairing: Timeout.')
+        logging.exception(f'{MAC} - Pairing timeout. Trying again.')
         ERROR_CLOSE = (750, 250)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
@@ -271,7 +289,7 @@ def pair():
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
         return 1
-    time.sleep(1)
+    time.sleep(2)
     PASSKEY_FIELD = (560, 190)
     pyautogui.moveTo(PASSKEY_FIELD)
     pyautogui.click()
@@ -289,6 +307,7 @@ def pair():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error when pairing: Bad passkey.')
+        logging.error(f'{MAC} - Bad passkey.')
         ERROR_CLOSE = (755, 265)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
@@ -327,12 +346,20 @@ def write_request():
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error writing: GATT operation already in progress.')
+        logging.exception(f'{MAC} - GATT operation already in progress. Trying again.')
         return -1
     return 0
 
 
+connect_DfuTarg_retry_counter = 0
 def connect_DfuTarg():
     print('Connecting to DfuTarg.')
+    global connect_DfuTarg_retry_counter
+    if connect_DfuTarg_retry_counter > 3:
+        connect_DfuTarg_retry_counter = 0
+        logging.exception(f'{MAC} - Connect DfuTarg limit reached. Skipping this device.')
+        return -1
+
     CONNECT_BUTTON = (950, 275)
     pyautogui.moveTo(CONNECT_BUTTON)
     pyautogui.click()
@@ -342,12 +369,16 @@ def connect_DfuTarg():
         position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
+        connect_DfuTarg_retry_counter = 0
+        return 0
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. DfuTarg has been disconnected.')
         print('  Trying to connect again.')
+        logging.exception(f'{MAC} - DfuTarg has been disconnected. Trying again.')
         ERROR_CLOSE = (750, 220)
         pyautogui.moveTo(ERROR_CLOSE)
         pyautogui.click()
+        connect_DfuTarg_retry_counter += 1
         connect_DfuTarg()
 
 
@@ -371,11 +402,14 @@ def choose_zip_file():
     time.sleep(0.5)
     pyautogui.write(FOLDER)
     pyautogui.press('enter')
-    print(FOLDER)
-    for _ in range(6):
+    # print(FOLDER)
+    # Have to wait long after first tab, then its fine
+    pyautogui.press('tab')
+    time.sleep(0.5)
+    for _ in range(5):
         pyautogui.press('tab')
         time.sleep(0.1)
-    pyautogui.write(FILE)
+    pyautogui.write(FILE, interval=0.01)
     pyautogui.press('enter')
     time.sleep(1)
 
@@ -386,11 +420,12 @@ def choose_zip_file():
         return 0
     except (pyautogui.ImageNotFoundException, ValueError):
         print('  Error received. Choosing zip file has failed.')
+        logging.error(f'{MAC} - Choosing zip file has failed. Skipping.')
         try:
             close_choose_file_window()
         except Exception as e:
             print(e)
-        restart_nrf_connect_ble_window()
+        # restart_nrf_connect_ble_window()
         return -1
 
 
@@ -424,6 +459,7 @@ def check_DFU() -> int:
             if (time_elapsed) > 90:
                 print('90 seconds exceeded. Stopping the execution.')
                 print('Please restart nRF Connect and the script.')
+                logging.error(f'{MAC} - Uploading taking too long (> 90 sec). Skipping.')
                 return -1
         time.sleep(5)
 
@@ -466,10 +502,10 @@ def read_list(aqm_list: str):
                 index += 1
     except FileNotFoundError:
         print('Bad AQM list specified. Exiting.')
-        exit()
+        sys.exit()
     except ValueError:
         print('Please check data correctness and try again. Exiting.')
-        exit()
+        sys.exit()
     global AQMS
     AQMS = aqms
 
@@ -481,11 +517,14 @@ def init():
     prepare_nrf_connect_window()
     prepare_nrf_connect_ble_window()
     read_list(AQMS_LIST)
+    init_results_folder()
+    init_logger()
 
 
 def AQM_update_main():
     print()
     print(f'Updating AQM at {MAC}')
+    logging.info(f'{MAC} - started.')
     try:
         choose_adapter()
         time.sleep(3)
@@ -508,12 +547,17 @@ def AQM_update_main():
             pair_attempt += 1
         while True:
             time.sleep(0.5)
+            write_attempt = 0
+            if write_attempt > 3:
+                raise RuntimeError
             if write_request() == 0:
                 break
+            write_attempt += 1
         time.sleep(7)
         filter_device(get_DFU_MAC(MAC))
         discover_devices()
-        connect_DfuTarg()
+        if connect_DfuTarg() == -1:
+            raise RuntimeError
         start_secure_DFU()
         if choose_zip_file() == -1:
             raise RuntimeError
@@ -521,13 +565,48 @@ def AQM_update_main():
         if check_DFU() == 0:
             # success
             print(f'Update of AQM at {MAC} is successful!')
+            logging.info(f'{MAC} - Success.')
             return 0
         else:
             # failure
             raise RuntimeError
     except RuntimeError:
+        # mb restart nRF here for safety
+        restart_nrf_connect_ble_window()
         print(f'Error while updating AQM at {MAC}. Skipping this device.')
+        logging.error(f'{MAC} - RuntimeError raised. Skipping this device.')
         return -1
+
+
+def init_results_folder():
+    try:
+        os.mkdir('results')
+    except:
+        pass
+    
+
+def log_success():
+    with open('results/successes.txt', 'a') as f:
+        f.write(f'{MAC} {PASSKEY}\n')
+
+
+def log_failure():
+    with open('results/failures.txt', 'a') as f:
+        f.write(f'{MAC} {PASSKEY}\n')
+
+
+def init_logger():
+    try:
+        os.mkdir('logs')
+    except:
+        pass
+    now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    logging.basicConfig(
+        filename=f'logs/Log_{now}.txt',
+        format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        level=logging.INFO
+        )
 
 
 if __name__ == "__main__":
@@ -535,5 +614,14 @@ if __name__ == "__main__":
     for aqm in AQMS:
         MAC = aqm['mac']
         PASSKEY = aqm['passkey']
-        AQM_update_main()
+        result = AQM_update_main()
+        if result == 0:
+            log_success()
+        else:
+            log_failure()
         time.sleep(3)
+    print('Program is finished. Press ENTER to exit.')
+    input()
+
+# command for compiling:
+# pyinstaller --onefile main.py --add-data="images;images"

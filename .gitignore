@@ -1,1 +1,10 @@
 .vscode/
+/logs
+/results
+
+
+__pycache__
+
+automation2.spec
+build/
+dist/
