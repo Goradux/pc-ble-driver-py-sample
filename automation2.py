@@ -162,7 +162,8 @@ def choose_adapter():
     pyautogui.moveTo(SELECT_DEVICE)
     pyautogui.click()
     try:
-        position = pyautogui.locateOnScreen('images/select_device_USB_nrf52.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/select_device_USB_nrf52.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position == None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -182,7 +183,8 @@ def filter_device(mac: str):
         pyautogui.click()
 
     try:
-        position = pyautogui.locateOnScreen('images/scan_options_extended.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/scan_options_extended.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position == None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -218,7 +220,8 @@ def connect_AQM():
         return -1
 
     try:
-        position = pyautogui.locateCenterOnScreen('images/button_connect.png', region=REGION, confidence=0.95)
+        img = cv2.imread('images/button_connect.png')
+        position = pyautogui.locateCenterOnScreen(img, region=REGION, confidence=0.95)
         if position == None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -233,7 +236,8 @@ def connect_AQM():
     time.sleep(1)
 
     try:
-        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/error_device_disconnected.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
         connect_AQM_retry_counter = 0
@@ -276,7 +280,8 @@ def pair():
     pyautogui.click()
     time.sleep(0.5)
     try:
-        position = pyautogui.locateOnScreen('images/error_pairing_timeout.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/error_pairing_timeout.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -302,7 +307,8 @@ def pair():
 
     # bad passkey
     try:
-        position = pyautogui.locateOnScreen('images/error_bad_passkey.png', region=REGION, confidence=0.9)
+        img = cv2.imread('images/error_bad_passkey.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.9)
         if position != None:
             raise ValueError
     except (pyautogui.ImageNotFoundException, ValueError):
@@ -336,7 +342,8 @@ def write_request():
     time.sleep(1)
     # insert error_write_gatt_operation_in_progress here
     try:
-        position = pyautogui.locateOnScreen('images/error_write_gatt_operation_in_progress.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/error_write_gatt_operation_in_progress.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position != None:
             ERROR_CLOSE = (755, 235)
             pyautogui.moveTo(ERROR_CLOSE)
@@ -366,7 +373,8 @@ def connect_DfuTarg():
     time.sleep(0.5)
     # this can throw a bunch of errors
     try:
-        position = pyautogui.locateOnScreen('images/error_device_disconnected.png', region=REGION, confidence=0.75)
+        img = cv2.imread('images/error_device_disconnected.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.75)
         if position != None:
             raise ValueError
         connect_DfuTarg_retry_counter = 0
@@ -414,7 +422,8 @@ def choose_zip_file():
     time.sleep(1)
 
     try:
-        position = pyautogui.locateOnScreen('images/choose_zip_file_success.png', region=REGION, confidence=0.9)
+        img = cv2.imread('images/choose_zip_file_success.png')
+        position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.9)
         if position == None:
             raise ValueError
         return 0
@@ -443,7 +452,8 @@ def check_DFU() -> int:
     start = time.time()
     while True:
         try:
-            position = pyautogui.locateOnScreen('images/dfu_completed.png', region=REGION, confidence=0.95)
+            img = cv2.imread('images/dfu_completed.png')
+            position = pyautogui.locateOnScreen(img, region=REGION, confidence=0.95)
             if position == None:
                 raise ValueError
             CLOSE_BUTTON = (755, 395)
@@ -624,4 +634,4 @@ if __name__ == "__main__":
     input()
 
 # command for compiling:
-# pyinstaller --onefile main.py --add-data="images;images"
+# pyinstaller --onefile automation2.py --add-data="images;images"
